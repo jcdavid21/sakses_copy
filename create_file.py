@@ -1,0 +1,45 @@
+import pandas as pd
+
+# Provided CSV content as a string
+csv_data = """beneficiary_id,first_name,last_name,date_of_birth,gender,civil_status,education_level,family_size,monthly_income_before,employment_status_before,is_pantawid_beneficiary,is_indigenous,has_disability,household_head,barangay_name,district,program_name,program_type,duration_months,enrollment_date,completion_date,status,attendance_rate,pre_assessment_score,post_assessment_score,employment_outcome,monthly_income_after,success_score,completion_rate,employment_rate,skill_improvement
+B400,Maria,Lopez,1989-03-15,Female,Married,High School,4,6500,unemployed,1,0,0,1,Bagumbayan,1,Bread Making Workshop,skills_training,3,2025-01-05,2025-04-05,completed,89.0,55,78,self_employed,12800,82.1,89,87,23
+B401,Jose,Ramos,1991-07-22,Male,Single,Vocational,2,8900,underemployed,0,1,0,0,Balingasa,1,Refrigeration Repair,skills_training,4,2025-02-08,2025-06-08,completed,91.5,61,85,employed,18200,88.3,91,93,24
+B402,Carmen,Bautista,1987-12-03,Female,Widowed,Elementary,5,4800,unemployed,1,0,1,1,Balintawak,1,Sewing and Alterations,skills_training,5,2025-03-12,,active,84.0,48,70,self_employed,11400,79.6,84,81,22
+B403,Roberto,Jimenez,1985-05-18,Male,Married,College,3,15200,employed,0,0,0,1,Bungad,1,Social Media Management,employment_facilitation,2,2025-01-28,2025-03-28,completed,95.0,78,97,employed,23500,96.2,95,98,19
+B404,Elena,Medina,1993-09-11,Female,Separated,Senior High,2,7800,unemployed,0,0,0,0,Claro,1,Online Selling Bootcamp,entrepreneurship,4,2025-02-15,,active,87.5,63,81,business_started,14600,84.7,87,85,18
+B405,Francisco,Perez,1988-01-29,Male,Single,High School,1,9300,employed,0,1,0,0,Damar,1,Motorcycle Taxi Service,entrepreneurship,3,2025-03-05,2025-06-05,completed,86.0,57,83,business_started,16900,85.8,86,88,26
+B406,Rosario,Navarro,1990-08-14,Female,Married,Vocational,6,5400,unemployed,1,0,1,1,Dona Josefa,1,Childcare Services,employment_facilitation,3,2025-01-18,2025-04-18,completed,92.5,66,88,employed,17800,90.4,92,94,22
+B407,Antonio,Vargas,1986-11-06,Male,Widowed,Elementary,7,3600,unemployed,1,1,0,1,Duyan-Duyan,1,Furniture Making,skills_training,6,2025-02-20,,active,77.0,42,64,self_employed,10200,74.8,77,79,22
+B408,Luz,Hernandez,1992-04-27,Female,Single,Senior High,1,10500,underemployed,0,0,0,0,E. Rodriguez,1,Event Planning,employment_facilitation,4,2025-01-12,,active,88.0,69,84,employed,19200,87.9,88,90,15
+B409,Manuel,Diaz,1984-10-09,Male,Married,College,4,12400,employed,0,0,1,1,Escopa,1,Mobile App Development,employment_facilitation,6,2025-04-08,,enrolled,0,74,,unemployed,12400,75.2,0,0,0
+B410,Consolacion,Gutierrez,1989-06-25,Female,Separated,High School,3,6700,unemployed,1,1,0,1,Gintong Silahis,1,Fish Processing,skills_training,4,2025-01-25,2025-05-25,completed,90.5,52,79,employed,15600,84.9,90,88,27
+B411,Rafael,Martinez,1991-02-17,Male,Single,Vocational,2,11800,underemployed,0,0,0,0,Gulod,1,Air Conditioning Repair,skills_training,5,2025-02-02,2025-07-02,completed,87.0,58,86,employed,19800,89.1,87,91,28
+B412,Pacita,Rodriguez,1987-07-31,Female,Married,Elementary,5,4100,unemployed,1,0,1,1,Himlayang Pilipino,1,Dried Fish Business,microenterprise,4,2025-03-18,,active,81.5,45,67,self_employed,9400,77.3,81,83,22
+B413,Ernesto,Villanueva,1990-12-12,Male,Widowed,Senior High,8,7200,unemployed,0,1,0,1,Immaculate Conception,1,House Painting Service,entrepreneurship,3,2025-02-05,2025-05-05,completed,89.0,54,82,business_started,14800,86.3,89,87,28
+B414,Leonor,Santos,1985-05-04,Female,Single,High School,2,8800,employed,0,0,0,0,Kaligayahan,1,Spa and Wellness,skills_training,5,2025-01-15,,active,85.0,60,76,self_employed,13900,82.8,85,84,16
+B415,Ruben,Garcia,1992-09-28,Male,Married,College,3,13800,underemployed,0,0,0,1,Kaunlaran,1,Digital Photography,employment_facilitation,2,2025-03-22,2025-05-22,completed,93.5,71,93,employed,21600,94.1,93,95,22
+B416,Victoria,Torres,1988-01-13,Female,Separated,Vocational,4,6200,unemployed,1,0,1,1,Kristong Hari,1,Cake Decorating,skills_training,4,2025-02-11,,active,83.0,49,73,self_employed,11700,80.4,83,85,24
+B417,Arturo,Flores,1986-08-20,Male,Single,Elementary,1,5900,unemployed,1,1,0,0,Libis,1,Organic Farming,microenterprise,5,2025-01-08,,active,78.5,40,66,self_employed,10800,76.9,78,81,26
+B418,Adoracion,Rivera,1994-11-02,Female,Married,Senior High,2,9600,employed,0,0,0,1,Loyola Heights,1,Content Writing Course,employment_facilitation,3,2025-04-15,,enrolled,0,67,,unemployed,9600,70.5,0,0,0
+B419,Leonardo,Morales,1989-06-16,Male,Widowed,High School,6,5800,unemployed,1,0,0,1,Magsaysay,1,Tricycle Repair Shop,entrepreneurship,4,2025-02-18,2025-06-18,completed,88.5,51,81,business_started,13500,85.1,88,86,30
+B420,Felicidad,Valdez,1991-03-07,Female,Single,Vocational,3,7400,underemployed,0,1,1,0,Malaya,1,Foot Spa Services,skills_training,3,2025-01-20,2025-04-20,completed,91.0,62,84,employed,16200,88.7,91,89,22
+B421,Danilo,Castro,1987-10-25,Male,Married,Elementary,7,4400,unemployed,1,1,0,1,Mangga,1,Bamboo Craft Making,microenterprise,6,2025-03-01,,active,76.0,43,65,self_employed,9200,74.2,76,78,22
+B422,Remedios,Herrera,1990-07-14,Female,Separated,Senior High,3,8200,employed,0,0,1,1,Mariana,1,Desktop Publishing,employment_facilitation,4,2025-01-30,,active,86.5,65,82,employed,18400,87.2,86,89,17
+B423,Teodoro,Aguilar,1985-04-08,Male,Single,High School,2,10200,underemployed,0,0,0,0,Matandang Balara,1,Generator Repair,skills_training,3,2025-02-22,2025-05-22,completed,89.5,56,83,employed,17600,87.9,89,91,27
+B424,Corazon,Mendoza,1993-12-19,Female,Married,Vocational,4,6600,unemployed,1,0,0,1,Muñoz,1,Candle Making Business,microenterprise,5,2025-01-10,,active,82.0,47,71,self_employed,11500,79.8,82,84,24
+B425,Numeriano,Cruz,1988-08-03,Male,Widowed,College,1,14600,employed,0,1,0,0,New Era,1,Database Administration,employment_facilitation,6,2025-04-20,,enrolled,0,76,,unemployed,14600,77.8,0,0,0
+B426,Soledad,Aquino,1992-01-26,Female,Single,High School,2,7900,unemployed,1,0,1,0,Palamaris,1,Meat Processing,skills_training,4,2025-02-01,2025-06-01,completed,90.0,53,80,employed,16800,86.4,90,88,27
+B427,Domingo,Ramos,1986-09-11,Male,Married,Elementary,8,3900,unemployed,1,1,1,1,Pasong Putik,1,Vegetable Gardening,microenterprise,3,2025-03-10,,active,74.0,41,63,self_employed,8700,73.8,74,77,22
+B428,Milagros,Lopez,1989-05-17,Female,Separated,Senior High,3,8500,underemployed,0,0,0,1,Phil-Am,1,Medical Transcription,employment_facilitation,5,2025-01-22,,active,88.5,68,85,employed,19600,89.3,88,92,17
+B429,Rogelio,Bautista,1991-11-30,Male,Single,Vocational,2,11200,employed,0,0,0,0,Quezon Memorial Circle,1,HVAC Maintenance,skills_training,4,2025-02-28,2025-06-28,completed,87.5,59,87,employed,20400,90.2,87,93,28
+B430,Esperanza,Jimenez,1987-07-05,Female,Married,High School,5,5700,unemployed,1,1,0,1,Salvacion,1,Herbal Medicine Production,microenterprise,6,2025-01-12,,active,79.5,44,68,self_employed,10600,76.7,79,82,24
+"""
+
+# Convert to dataframe
+df = pd.read_csv(pd.compat.StringIO(csv_data))
+
+# Save as CSV file
+file_path = "beneficiaries_B400.csv"
+df.to_csv(file_path, index=False)
+
+file_path

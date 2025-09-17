@@ -177,6 +177,7 @@ $stats = $stats_result->fetch_assoc();
             background-color: #17a2b8;
             color: white;
         }
+
         .action-btn {
             padding: 0.375rem 0.5rem;
             border: none;
@@ -186,6 +187,50 @@ $stats = $stats_result->fetch_assoc();
             transition: all 0.2s ease;
         }
 
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-top: 1px solid #dee2e6;
+            margin-top: 20px;
+        }
+
+        .pagination-info {
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+
+        .pagination {
+            margin: 0;
+        }
+
+        .pagination .page-link {
+            color: #17a2b8;
+            border: 1px solid #dee2e6;
+            padding: 0.5rem 0.75rem;
+            margin-left: -1px;
+            text-decoration: none;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #446cadff;
+            border-color: #446cadff;
+            color: white;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f8f9fa;
+            border-color: #17a2b8;
+            color: #17a2b8;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            pointer-events: none;
+            background-color: #fff;
+            border-color: #dee2e6;
+        }
     </style>
 </head>
 
@@ -315,58 +360,22 @@ $stats = $stats_result->fetch_assoc();
                     </thead>
                     <tbody id="programsTableBody">
                         <?php foreach ($programs as $program): ?>
-                            <tr data-program='<?php echo json_encode($program); ?>'>
-                                <td>
-                                    <span class="fw-bold"><?php echo htmlspecialchars($program['program_code']); ?></span>
-                                </td>
-                                <td>
-                                    <div>
-                                        <div class="fw-semibold"><?php echo htmlspecialchars($program['program_name']); ?></div>
-                                        <small class="text-muted"><?php echo htmlspecialchars(substr($program['description'], 0, 50)) . '...'; ?></small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="program-type-badge program-type-<?php echo $program['program_type']; ?>">
-                                        <?php echo ucwords(str_replace('_', ' ', $program['program_type'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="fw-medium"><?php echo $program['duration_months']; ?> months</span>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-<?php echo $program['status']; ?>">
-                                        <?php echo ucfirst($program['status']); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="progress-bar-container">
-                                        <div class="progress-bar-fill bg-success" style="width: <?php echo $program['progress_percentage']; ?>%"></div>
-                                    </div>
-                                    <small class="text-muted"><?php echo round($program['progress_percentage']); ?>%</small>
-                                </td>
-                                <td>
-                                    <span class="fw-semibold"><?php echo number_format($program['target_beneficiaries']); ?> <span style="font-size: 12px; color: #6c757d;">(target)</span></span>
-                                </td>
-                                <td>
-                                    <span class="budget-amount">₱<?php echo number_format($program['budget_allocated'], 0); ?></span>
-                                </td>
-                                <td>
-                                    <div class="d-flex">
-                                        <button class="action-btn btn-view" onclick="viewProgram(<?php echo $program['id']; ?>)" title="View Details">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="action-btn btn-edit" onclick="editProgram(<?php echo $program['id']; ?>)" title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="action-btn btn-delete btn-danger" onclick="deleteProgram(<?php echo $program['id']; ?>)" title="Delete">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                            <!-- Remove all PHP generated table rows -->
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="pagination-container" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRecords">0</span> entries
+                </div>
+                <nav aria-label="Programs pagination">
+                    <ul class="pagination" id="paginationList">
+                        <!-- Pagination buttons will be generated by JavaScript -->
+                    </ul>
+                </nav>
             </div>
 
             <!-- Loading Spinner -->
@@ -443,12 +452,12 @@ $stats = $stats_result->fetch_assoc();
                                 <div class="col-md-6">
                                     <label class="form-label">Start Date *</label>
                                     <input type="date" class="form-control" name="start_date"
-                                    id="add_start_date" required>
+                                        id="add_start_date" required>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">End Date</label>
                                     <input type="date" class="form-control" name="end_date" id="add_end_date"
-                                    onchange="dateFunction(this.value)">
+                                        onchange="dateFunction(this.value)">
                                 </div>
                             </div>
                         </div>
@@ -557,8 +566,8 @@ $stats = $stats_result->fetch_assoc();
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">End Date</label>
-                                    <input type="date" class="form-control" id="edit_end_date" name="end_date" 
-                                    onchange="editDateFunction(this.value)">
+                                    <input type="date" class="form-control" id="edit_end_date" name="end_date"
+                                        onchange="editDateFunction(this.value)">
                                 </div>
                             </div>
                         </div>
@@ -603,16 +612,23 @@ $stats = $stats_result->fetch_assoc();
         // Global variables
         let programs = <?php echo json_encode($programs); ?>;
         let filteredPrograms = [...programs];
+        let currentPage = 1;
+        const recordsPerPage = 10;
 
         // Initialize page
         $(document).ready(function() {
-            initializeFilters()
+            // Clear PHP-generated table rows first
+            $('#programsTableBody').empty();
+
+            initializeFilters();
             initializeSearch();
+            filterPrograms(); // This will render the table with pagination
         });
 
         // Initialize search functionality
         function initializeSearch() {
             $('#searchInput').on('keyup', function() {
+                currentPage = 1; // Reset to first page when searching
                 filterPrograms();
             });
         }
@@ -620,6 +636,7 @@ $stats = $stats_result->fetch_assoc();
         // Initialize filter functionality
         function initializeFilters() {
             $('#typeFilter, #statusFilter, #durationFilter').on('change', function() {
+                currentPage = 1; // Reset to first page when filtering
                 filterPrograms();
             });
         }
@@ -665,6 +682,185 @@ $stats = $stats_result->fetch_assoc();
             });
 
             renderProgramsTable();
+            renderPagination();
+        }
+
+        // Render programs table with pagination
+        function renderProgramsTable() {
+            const tbody = $('#programsTableBody');
+            tbody.empty();
+
+            if (filteredPrograms.length === 0) {
+                tbody.append(`
+            <tr>
+                <td colspan="9" class="text-center py-4">
+                    <i class="fas fa-search text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No programs found matching your criteria</p>
+                </td>
+            </tr>
+        `);
+                $('#paginationContainer').hide();
+                return;
+            }
+
+            // Calculate pagination
+            const startIndex = (currentPage - 1) * recordsPerPage;
+            const endIndex = Math.min(startIndex + recordsPerPage, filteredPrograms.length);
+            const currentPageData = filteredPrograms.slice(startIndex, endIndex);
+
+            // Render current page data
+            currentPageData.forEach(program => {
+                const row = createProgramRow(program);
+                tbody.append(row);
+            });
+
+            $('#paginationContainer').show();
+            updatePaginationInfo();
+        }
+
+        // Create program table row
+        function createProgramRow(program) {
+            return `
+        <tr data-program='${JSON.stringify(program)}'>
+            <td><span class="fw-bold">${program.program_code}</span></td>
+            <td>
+                <div>
+                    <div class="fw-semibold">${program.program_name}</div>
+                    <small class="text-muted">${program.description.substring(0, 50)}...</small>
+                </div>
+            </td>
+            <td>
+                <span class="program-type-badge program-type-${program.program_type}">
+                    ${program.program_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </span>
+            </td>
+            <td><span class="fw-medium">${program.duration_months} months</span></td>
+            <td>
+                <span class="status-badge status-${program.status}">
+                    ${program.status.charAt(0).toUpperCase() + program.status.slice(1)}
+                </span>
+            </td>
+            <td>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill bg-success" style="width: ${program.progress_percentage}%"></div>
+                </div>
+                <small class="text-muted">${Math.round(program.progress_percentage)}%</small>
+            </td>
+            <td><span class="fw-semibold">${Number(program.target_beneficiaries).toLocaleString()} <span style="font-size: 12px; color: #6c757d;">(target)</span></span></td>
+            <td><span class="budget-amount">₱${Number(program.budget_allocated).toLocaleString()}</span></td>
+            <td>
+                <div class="d-flex">
+                    <button class="action-btn btn-view" onclick="viewProgram(${program.id})" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn btn-edit" onclick="editProgram(${program.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn btn-delete" onclick="deleteProgram(${program.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredPrograms.length / recordsPerPage);
+            const paginationList = $('#paginationList');
+            paginationList.empty();
+
+            if (totalPages <= 1) {
+                $('#paginationContainer').hide();
+                return;
+            }
+
+            $('#paginationContainer').show();
+
+            // Previous button
+            const prevDisabled = currentPage === 1 ? 'disabled' : '';
+            paginationList.append(`
+        <li class="page-item ${prevDisabled}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
+        </li>
+    `);
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            // First page
+            if (startPage > 1) {
+                paginationList.append(`
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(1); return false;">1</a>
+            </li>
+        `);
+                if (startPage > 2) {
+                    paginationList.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                }
+            }
+
+            // Page numbers around current page
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === currentPage ? 'active' : '';
+                paginationList.append(`
+            <li class="page-item ${activeClass}">
+                <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+            </li>
+        `);
+            }
+
+            // Last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationList.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                }
+                paginationList.append(`
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(${totalPages}); return false;">${totalPages}</a>
+            </li>
+        `);
+            }
+
+            // Next button
+            const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+            paginationList.append(`
+        <li class="page-item ${nextDisabled}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
+        </li>
+    `);
+        }
+
+        // Change page
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredPrograms.length / recordsPerPage);
+
+            if (page < 1 || page > totalPages) {
+                return;
+            }
+
+            currentPage = page;
+            renderProgramsTable();
+            renderPagination();
+        }
+
+        // Update pagination info
+        function updatePaginationInfo() {
+            if (filteredPrograms.length === 0) {
+                $('#showingStart').text(0);
+                $('#showingEnd').text(0);
+                $('#totalRecords').text(0);
+                return;
+            }
+
+            const startIndex = (currentPage - 1) * recordsPerPage + 1;
+            const endIndex = Math.min(currentPage * recordsPerPage, filteredPrograms.length);
+
+            $('#showingStart').text(startIndex);
+            $('#showingEnd').text(endIndex);
+            $('#totalRecords').text(filteredPrograms.length);
         }
 
         // Clear all filters
@@ -673,78 +869,8 @@ $stats = $stats_result->fetch_assoc();
             $('#typeFilter').val('');
             $('#statusFilter').val('');
             $('#durationFilter').val('');
-            filteredPrograms = [...programs];
-            renderProgramsTable();
-        }
-
-        // Render programs table
-        function renderProgramsTable() {
-            const tbody = $('#programsTableBody');
-            tbody.empty();
-
-            if (filteredPrograms.length === 0) {
-                tbody.append(`
-                    <tr>
-                        <td colspan="9" class="text-center py-4">
-                            <i class="fas fa-search text-muted" style="font-size: 2rem;"></i>
-                            <p class="text-muted mt-2 mb-0">No programs found matching your criteria</p>
-                        </td>
-                    </tr>
-                `);
-                return;
-            }
-
-            filteredPrograms.forEach(program => {
-                const row = createProgramRow(program);
-                tbody.append(row);
-            });
-        }
-
-        // Create program table row
-        function createProgramRow(program) {
-            return `
-                <tr data-program='${JSON.stringify(program)}'>
-                    <td><span class="fw-bold">${program.program_code}</span></td>
-                    <td>
-                        <div>
-                            <div class="fw-semibold">${program.program_name}</div>
-                            <small class="text-muted">${program.description.substring(0, 50)}...</small>
-                        </div>
-                    </td>
-                    <td>
-                        <span class="program-type-badge program-type-${program.program_type}">
-                            ${program.program_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
-                    </td>
-                    <td><span class="fw-medium">${program.duration_months} months</span></td>
-                    <td>
-                        <span class="status-badge status-${program.status}">
-                            ${program.status.charAt(0).toUpperCase() + program.status.slice(1)}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill bg-success" style="width: ${program.progress_percentage}%"></div>
-                        </div>
-                        <small class="text-muted">${Math.round(program.progress_percentage)}%</small>
-                    </td>
-                    <td><span class="fw-semibold">${Number(program.target_beneficiaries).toLocaleString()} <span style="font-size: 12px; color: #6c757d;">(target)</span></span></td>
-                    <td><span class="budget-amount">₱${Number(program.budget_allocated).toLocaleString()}</span></td>
-                    <td>
-                        <div class="d-flex">
-                            <button class="action-btn btn-view" onclick="viewProgram(${program.id})" title="View Details">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn btn-edit" onclick="editProgram(${program.id})" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-btn btn-delete" onclick="deleteProgram(${program.id})" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            currentPage = 1;
+            filterPrograms();
         }
 
         // Show add program modal
@@ -772,11 +898,11 @@ $stats = $stats_result->fetch_assoc();
             return `LP-${currentYear}-${nextNumber.toString().padStart(3, '0')}`;
         }
 
-        function dateFunction(endDate){
+        function dateFunction(endDate) {
             const startDateInput = document.getElementById('add_start_date');
             const endDateInput = document.getElementById('add_end_date');
 
-            if(!startDateInput.value){
+            if (!startDateInput.value) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Start Date Required',
@@ -805,11 +931,11 @@ $stats = $stats_result->fetch_assoc();
             }
         }
 
-        function editDateFunction(endDate){
+        function editDateFunction(endDate) {
             const startDateInput = document.getElementById('edit_start_date');
             const endDateInput = document.getElementById('edit_end_date');
 
-            if(!startDateInput.value){
+            if (!startDateInput.value) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Start Date Required',
@@ -874,7 +1000,7 @@ $stats = $stats_result->fetch_assoc();
                             timer: 2000,
                             showConfirmButton: false
                         }).then((result) => {
-                            if(result){
+                            if (result) {
                                 location.reload();
                             }
                         });
@@ -978,7 +1104,9 @@ $stats = $stats_result->fetch_assoc();
                 const response = await $.ajax({
                     url: '../backend/livelihood/delete_program.php',
                     method: 'POST',
-                    data: { id: programId },
+                    data: {
+                        id: programId
+                    },
                     dataType: 'json'
                 });
 
@@ -987,8 +1115,8 @@ $stats = $stats_result->fetch_assoc();
                         icon: 'success',
                         title: 'Deleted!',
                         text: 'Program has been deleted.'
-                    }).then((result)=>{
-                        if(result){
+                    }).then((result) => {
+                        if (result) {
                             location.reload();
                         }
                     })
@@ -1155,7 +1283,7 @@ $stats = $stats_result->fetch_assoc();
             programData.duration_months = parseInt(programData.duration_months);
             programData.target_beneficiaries = parseInt(programData.target_beneficiaries);
             programData.budget_allocated = parseFloat(programData.budget_allocated);
-            
+
             // Show loading indicator
             Swal.fire({
                 title: 'Updating Program...',
@@ -1179,7 +1307,7 @@ $stats = $stats_result->fetch_assoc();
                         timer: 2000,
                         showConfirmButton: false
                     }).then((result) => {
-                        if(result){
+                        if (result) {
                             // Close modal and refresh page
                             $('#editProgramModal').modal('hide');
                             location.reload();

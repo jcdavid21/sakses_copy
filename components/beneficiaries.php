@@ -95,6 +95,7 @@ $stats = $stats_result->fetch_assoc();
             background-color: #17a2b8;
             color: white;
         }
+
         .action-btn {
             padding: 0.375rem 0.5rem;
             border: none;
@@ -102,6 +103,51 @@ $stats = $stats_result->fetch_assoc();
             font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s ease;
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-top: 1px solid #dee2e6;
+            margin-top: 20px;
+        }
+
+        .pagination-info {
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+
+        .pagination {
+            margin: 0;
+        }
+
+        .pagination .page-link {
+            color: #17a2b8;
+            border: 1px solid #dee2e6;
+            padding: 0.5rem 0.75rem;
+            margin-left: -1px;
+            text-decoration: none;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #446cadff;
+            border-color: #446cadff;
+            color: white;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #f8f9fa;
+            border-color: #17a2b8;
+            color: #17a2b8;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            pointer-events: none;
+            background-color: #fff;
+            border-color: #dee2e6;
         }
     </style>
     <title>Beneficiaries - SAKSES</title>
@@ -231,68 +277,21 @@ $stats = $stats_result->fetch_assoc();
                         </tr>
                     </thead>
                     <tbody id="beneficiariesTableBody">
-                        <?php foreach ($beneficiaries as $beneficiary): ?>
-                            <tr data-beneficiary='<?php echo json_encode($beneficiary); ?>'>
-                                <td>
-                                    <span class="fw-bold"><?php echo htmlspecialchars($beneficiary['beneficiary_id']); ?></span>
-                                </td>
-                                <td>
-                                    <div>
-                                        <div class="fw-semibold"><?php echo htmlspecialchars($beneficiary['full_name']); ?></div>
-                                        <small class="text-muted"><?php echo htmlspecialchars($beneficiary['email'] ?? 'No email'); ?></small>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="fw-medium"><?php echo $beneficiary['age']; ?> years</span>
-                                </td>
-                                <td>
-                                    <span class="status-badge <?php echo $beneficiary['gender'] === 'Male' ? 'gender-male' : 'gender-female'; ?>">
-                                        <?php echo $beneficiary['gender']; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="status-badge">
-                                        <?php echo ucfirst(str_replace('_', ' ', $beneficiary['civil_status'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-<?php echo $beneficiary['employment_status_before']; ?>">
-                                        <?php echo ucfirst(str_replace('_', ' ', $beneficiary['employment_status_before'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="fw-semibold">₱<?php echo number_format($beneficiary['monthly_income_before'], 2); ?></span>
-                                </td>
-                                <td>
-                                    <div class="special-indicators">
-                                        <?php if ($beneficiary['is_pantawid_beneficiary']): ?>
-                                            <span class="indicator indicator-pantawid" title="4Ps Beneficiary">4P</span>
-                                        <?php endif; ?>
-                                        <?php if ($beneficiary['is_indigenous']): ?>
-                                            <span class="indicator indicator-indigenous" title="Indigenous People">IP</span>
-                                        <?php endif; ?>
-                                        <?php if ($beneficiary['has_disability']): ?>
-                                            <span class="indicator indicator-pwd" title="Person with Disability">PWD</span>
-                                        <?php endif; ?>
-                                        <?php if ($beneficiary['household_head']): ?>
-                                            <span class="indicator indicator-head" title="Household Head">HH</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="d-flex">
-                                        <button class="action-btn btn-view" onclick="viewBeneficiary(<?php echo $beneficiary['id']; ?>)" title="View Details">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="action-btn btn-edit" onclick="editBeneficiary(<?php echo $beneficiary['id']; ?>)" title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+                        <!-- Table rows will be generated by JavaScript -->
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="pagination-container" id="paginationContainer">
+                <div class="pagination-info">
+                    Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalRecords">0</span> entries
+                </div>
+                <nav aria-label="Beneficiaries pagination">
+                    <ul class="pagination" id="paginationList">
+                        <!-- Pagination buttons will be generated by JavaScript -->
+                    </ul>
+                </nav>
             </div>
 
             <!-- Loading Spinner -->
@@ -669,17 +668,23 @@ $stats = $stats_result->fetch_assoc();
         // Global variables
         let allBeneficiaries = <?php echo json_encode($beneficiaries); ?>;
         let filteredBeneficiaries = [...allBeneficiaries];
+        let currentPage = 1;
+        const recordsPerPage = 10;
 
         // Initialize page
         $(document).ready(function() {
+            // Clear PHP-generated table rows first
+            $('#beneficiariesTableBody').empty();
+
             initializeFilters();
             initializeSearch();
+            filterBeneficiaries(); // This will render the table with pagination
         });
 
         // Initialize search functionality
         function initializeSearch() {
             $('#searchInput').on('keyup', function() {
-                const searchTerm = $(this).val().toLowerCase();
+                currentPage = 1; // Reset to first page when searching
                 filterBeneficiaries();
             });
         }
@@ -687,6 +692,7 @@ $stats = $stats_result->fetch_assoc();
         // Initialize filter functionality
         function initializeFilters() {
             $('#genderFilter, #employmentFilter, #statusFilter').on('change', function() {
+                currentPage = 1; // Reset to first page when filtering
                 filterBeneficiaries();
             });
         }
@@ -735,29 +741,40 @@ $stats = $stats_result->fetch_assoc();
             });
 
             renderBeneficiariesTable();
+            renderPagination();
         }
 
-        // Render beneficiaries table
+        // Render beneficiaries table with pagination
         function renderBeneficiariesTable() {
             const tbody = $('#beneficiariesTableBody');
             tbody.empty();
 
             if (filteredBeneficiaries.length === 0) {
                 tbody.append(`
-                    <tr>
-                        <td colspan="9" class="text-center py-4">
-                            <i class="fas fa-search text-muted" style="font-size: 2rem;"></i>
-                            <p class="text-muted mt-2 mb-0">No beneficiaries found matching your criteria</p>
-                        </td>
-                    </tr>
-                `);
+            <tr>
+                <td colspan="9" class="text-center py-4">
+                    <i class="fas fa-search text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No beneficiaries found matching your criteria</p>
+                </td>
+            </tr>
+        `);
+                $('#paginationContainer').hide();
                 return;
             }
 
-            filteredBeneficiaries.forEach(beneficiary => {
+            // Calculate pagination
+            const startIndex = (currentPage - 1) * recordsPerPage;
+            const endIndex = Math.min(startIndex + recordsPerPage, filteredBeneficiaries.length);
+            const currentPageData = filteredBeneficiaries.slice(startIndex, endIndex);
+
+            // Render current page data
+            currentPageData.forEach(beneficiary => {
                 const row = createBeneficiaryRow(beneficiary);
                 tbody.append(row);
             });
+
+            $('#paginationContainer').show();
+            updatePaginationInfo();
         }
 
         // Create beneficiary table row
@@ -777,48 +794,146 @@ $stats = $stats_result->fetch_assoc();
             }
 
             return `
-                <tr data-beneficiary='${JSON.stringify(beneficiary)}'>
-                    <td><span class="fw-bold">${beneficiary.beneficiary_id}</span></td>
-                    <td>
-                        <div>
-                            <div class="fw-semibold">${beneficiary.full_name}</div>
-                            <small class="text-muted">${beneficiary.email || 'No email'}</small>
-                        </div>
-                    </td>
-                    <td><span class="fw-medium">${beneficiary.age} years</span></td>
-                    <td>
-                        <span class="status-badge ${beneficiary.gender === 'Male' ? 'gender-male' : 'gender-female'}">
-                            ${beneficiary.gender}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="status-badge">
-                            ${beneficiary.civil_status.replace('_', ' ')}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="status-badge status-${beneficiary.employment_status_before}">
-                            ${beneficiary.employment_status_before.replace('_', ' ')}
-                        </span>
-                    </td>
-                    <td><span class="fw-semibold">₱${parseFloat(beneficiary.monthly_income_before).toLocaleString()}</span></td>
-                    <td>
-                        <div class="special-indicators">
-                            ${specialIndicators.join('')}
-                        </div>
-                    </td>
-                    <td>
-                        <div class="d-flex">
-                            <button class="action-btn btn-view" onclick="viewBeneficiary(${beneficiary.id})" title="View Details">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="action-btn btn-edit" onclick="editBeneficiary(${beneficiary.id})" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+        <tr data-beneficiary='${JSON.stringify(beneficiary)}'>
+            <td><span class="fw-bold">${beneficiary.beneficiary_id}</span></td>
+            <td>
+                <div>
+                    <div class="fw-semibold">${beneficiary.full_name}</div>
+                    <small class="text-muted">${beneficiary.email || 'No email'}</small>
+                </div>
+            </td>
+            <td><span class="fw-medium">${beneficiary.age} years</span></td>
+            <td>
+                <span class="status-badge ${beneficiary.gender === 'Male' ? 'gender-male' : 'gender-female'}">
+                    ${beneficiary.gender}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge">
+                    ${beneficiary.civil_status.replace('_', ' ')}
+                </span>
+            </td>
+            <td>
+                <span class="status-badge status-${beneficiary.employment_status_before}">
+                    ${beneficiary.employment_status_before.replace('_', ' ')}
+                </span>
+            </td>
+            <td><span class="fw-semibold">₱${parseFloat(beneficiary.monthly_income_before).toLocaleString()}</span></td>
+            <td>
+                <div class="special-indicators">
+                    ${specialIndicators.join('')}
+                </div>
+            </td>
+            <td>
+                <div class="d-flex">
+                    <button class="action-btn btn-view" onclick="viewBeneficiary(${beneficiary.id})" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn btn-edit" onclick="editBeneficiary(${beneficiary.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredBeneficiaries.length / recordsPerPage);
+            const paginationList = $('#paginationList');
+            paginationList.empty();
+
+            if (totalPages <= 1) {
+                $('#paginationContainer').hide();
+                return;
+            }
+
+            $('#paginationContainer').show();
+
+            // Previous button
+            const prevDisabled = currentPage === 1 ? 'disabled' : '';
+            paginationList.append(`
+        <li class="page-item ${prevDisabled}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">Previous</a>
+        </li>
+    `);
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            // First page
+            if (startPage > 1) {
+                paginationList.append(`
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(1); return false;">1</a>
+            </li>
+        `);
+                if (startPage > 2) {
+                    paginationList.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                }
+            }
+
+            // Page numbers around current page
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === currentPage ? 'active' : '';
+                paginationList.append(`
+            <li class="page-item ${activeClass}">
+                <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+            </li>
+        `);
+            }
+
+            // Last page
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationList.append('<li class="page-item disabled"><span class="page-link">...</span></li>');
+                }
+                paginationList.append(`
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="changePage(${totalPages}); return false;">${totalPages}</a>
+            </li>
+        `);
+            }
+
+            // Next button
+            const nextDisabled = currentPage === totalPages ? 'disabled' : '';
+            paginationList.append(`
+        <li class="page-item ${nextDisabled}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">Next</a>
+        </li>
+    `);
+        }
+
+        // Change page
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredBeneficiaries.length / recordsPerPage);
+
+            if (page < 1 || page > totalPages) {
+                return;
+            }
+
+            currentPage = page;
+            renderBeneficiariesTable();
+            renderPagination();
+        }
+
+        // Update pagination info
+        function updatePaginationInfo() {
+            if (filteredBeneficiaries.length === 0) {
+                $('#showingStart').text(0);
+                $('#showingEnd').text(0);
+                $('#totalRecords').text(0);
+                return;
+            }
+
+            const startIndex = (currentPage - 1) * recordsPerPage + 1;
+            const endIndex = Math.min(currentPage * recordsPerPage, filteredBeneficiaries.length);
+
+            $('#showingStart').text(startIndex);
+            $('#showingEnd').text(endIndex);
+            $('#totalRecords').text(filteredBeneficiaries.length);
         }
 
         // Clear all filters
@@ -827,8 +942,10 @@ $stats = $stats_result->fetch_assoc();
             $('#genderFilter').val('');
             $('#employmentFilter').val('');
             $('#statusFilter').val('');
+            currentPage = 1;
             filterBeneficiaries();
         }
+
 
         async function updateBeneficiary() {
             const form = document.getElementById('editBeneficiaryForm');

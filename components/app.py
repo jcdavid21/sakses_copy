@@ -30,6 +30,10 @@ import pandas as pd
 import mysql.connector
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
+import tempfile
+import io
+import csv
 
 # Machine Learning imports
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -901,6 +905,475 @@ def predict_programs():
     except Exception as e:
         logger.error(f"Program predictions error: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/preview_dataset', methods=['POST'])
+def preview_dataset():
+    """Preview dataset before upload"""
+    try:
+        if 'dataset' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['dataset']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be CSV format'}), 400
+        
+        # Read CSV content
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.DictReader(stream)
+        
+        # Preview data
+        preview_data = []
+        issues = []
+        total_rows = 0
+        valid_rows = 0
+        
+        required_fields = ['beneficiary_id', 'first_name', 'last_name', 'program_name']
+        
+        for row_num, row in enumerate(csv_input, 1):
+            total_rows += 1
+            
+            # Check for required fields
+            missing_fields = [field for field in required_fields if not row.get(field, '').strip()]
+            
+            if missing_fields:
+                issues.append(f"Row {row_num}: Missing required fields: {', '.join(missing_fields)}")
+            else:
+                valid_rows += 1
+            
+            # Add to preview (first 10 rows only)
+            if len(preview_data) < 10:
+                preview_data.append(row)
+            
+            # Stop processing after 100 rows for preview
+            if row_num >= 100:
+                break
+        
+        return jsonify({
+            'success': True,
+            'preview_data': preview_data,
+            'total_rows': total_rows,
+            'valid_rows': valid_rows,
+            'issues': issues[:20],  # Limit issues to first 20
+            'columns': list(preview_data[0].keys()) if preview_data else []
+        })
+        
+    except Exception as e:
+        logger.error(f"Dataset preview error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    
+
+@app.route('/upload_dataset', methods=['POST'])
+def upload_dataset():
+    """Handle dataset upload and insert into database"""
+    try:
+        if 'dataset' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['dataset']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be CSV format'}), 400
+        
+        # Read CSV content
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.DictReader(stream)
+        
+        # Process and insert data
+        records_processed = process_dataset(csv_input)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Dataset uploaded and processed successfully',
+            'records_processed': records_processed
+        })
+        
+    except Exception as e:
+        logger.error(f"Dataset upload error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def process_dataset(csv_data):
+    """Process CSV data and insert into database"""
+    conn = db.get_connection()
+    if not conn:
+        raise Exception("Database connection failed")
+    
+    cursor = conn.cursor(buffered=True)  # Add buffered=True to prevent unread results
+    records_processed = 0
+    
+    try:
+        for row in csv_data:
+            # Insert beneficiary
+            beneficiary_id = insert_beneficiary(cursor, row)
+            if not beneficiary_id:
+                continue
+                
+            # Insert program if not exists
+            program_id = insert_or_get_program(cursor, row)
+            if not program_id:
+                continue
+                
+            # Insert enrollment
+            enrollment_id = insert_enrollment(cursor, beneficiary_id, program_id, row)
+            if not enrollment_id:
+                continue
+                
+            # Insert employment outcome if exists
+            if row.get('employment_outcome'):
+                insert_employment_outcome(cursor, beneficiary_id, program_id, row)
+            
+            # Insert success metrics if exists
+            if row.get('success_score'):
+                insert_success_metrics(cursor, beneficiary_id, program_id, row)
+            
+            records_processed += 1
+            
+            # Commit after each record to avoid transaction timeouts
+            conn.commit()
+        
+        logger.info(f"Processed {records_processed} records from dataset")
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error processing dataset: {e}")
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return records_processed
+
+def insert_beneficiary(cursor, row):
+    """Insert beneficiary data"""
+    try:
+        # Check if beneficiary already exists
+        cursor.execute("SELECT id FROM beneficiaries WHERE beneficiary_id = %s", (row['beneficiary_id'],))
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        if existing:
+            return existing[0]
+        
+        # Get barangay ID
+        barangay_id = get_or_create_barangay(cursor, row.get('barangay_name', 'Unknown'), row.get('district', 1))
+        
+        # Insert beneficiary
+        beneficiary_query = """
+        INSERT INTO beneficiaries (
+            beneficiary_id, first_name, last_name, date_of_birth, gender, civil_status,
+            education_level, family_size, monthly_income_before, employment_status_before,
+            is_pantawid_beneficiary, is_indigenous, has_disability, household_head,
+            barangay_id, complete_address, contact_number, email
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(beneficiary_query, (
+            row['beneficiary_id'],
+            row['first_name'],
+            row['last_name'], 
+            row['date_of_birth'],
+            row['gender'],
+            row['civil_status'],
+            row['education_level'],
+            int(row.get('family_size', 1)),
+            float(row.get('monthly_income_before', 0)),
+            row['employment_status_before'],
+            int(row.get('is_pantawid_beneficiary', 0)),
+            int(row.get('is_indigenous', 0)),
+            int(row.get('has_disability', 0)),
+            int(row.get('household_head', 0)),
+            barangay_id,
+            row.get('complete_address', 'Not provided'),
+            row.get('contact_number', ''),
+            row.get('email', '')
+        ))
+        
+        return cursor.lastrowid
+        
+    except Exception as e:
+        logger.error(f"Error inserting beneficiary: {e}")
+        return None
+
+def insert_beneficiary(cursor, row):
+    """Insert beneficiary data"""
+    try:
+        # Check if beneficiary already exists
+        cursor.execute("SELECT id FROM beneficiaries WHERE beneficiary_id = %s", (row['beneficiary_id'],))
+        existing = cursor.fetchone()
+        if existing:
+            return existing[0]
+        
+        # Get barangay ID
+        barangay_id = get_or_create_barangay(cursor, row.get('barangay_name', 'Unknown'), row.get('district', 1))
+        
+        # Insert beneficiary
+        beneficiary_query = """
+        INSERT INTO beneficiaries (
+            beneficiary_id, first_name, last_name, date_of_birth, gender, civil_status,
+            education_level, family_size, monthly_income_before, employment_status_before,
+            is_pantawid_beneficiary, is_indigenous, has_disability, household_head,
+            barangay_id, complete_address, contact_number, email
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(beneficiary_query, (
+            row['beneficiary_id'],
+            row['first_name'],
+            row['last_name'], 
+            row['date_of_birth'],
+            row['gender'],
+            row['civil_status'],
+            row['education_level'],
+            int(row.get('family_size', 1)),
+            float(row.get('monthly_income_before', 0)),
+            row['employment_status_before'],
+            int(row.get('is_pantawid_beneficiary', 0)),
+            int(row.get('is_indigenous', 0)),
+            int(row.get('has_disability', 0)),
+            int(row.get('household_head', 0)),
+            barangay_id,
+            row.get('complete_address', 'Not provided'),
+            row.get('contact_number', ''),
+            row.get('email', '')
+        ))
+        
+        return cursor.lastrowid
+        
+    except Exception as e:
+        logger.error(f"Error inserting beneficiary: {e}")
+        return None
+
+def insert_or_get_program(cursor, row):
+    """Insert or get existing program"""
+    try:
+        program_name = row.get('program_name', 'Unknown Program')
+        
+        # Check if program exists
+        cursor.execute("SELECT id FROM livelihood_programs WHERE program_name = %s", (program_name,))
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        if existing:
+            return existing[0]
+        
+        # Get a unique program code
+        cursor.execute("SELECT MAX(id) FROM livelihood_programs")
+        max_id = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        program_code = f"LP{(max_id[0] or 0) + 1}"
+        
+        # Insert new program
+        program_query = """
+        INSERT INTO livelihood_programs (
+            program_code, program_name, program_type, duration_months,
+            target_beneficiaries, start_date, status, created_by
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(program_query, (
+            program_code,
+            program_name,
+            row.get('program_type', 'skills_training'),
+            int(row.get('duration_months', 3)),
+            50,  # Default target
+            row.get('enrollment_date', '2025-01-01'),
+            'active',
+            1  # Default user
+        ))
+        
+        return cursor.lastrowid
+        
+    except Exception as e:
+        logger.error(f"Error inserting program: {e}")
+        return None
+
+def insert_enrollment(cursor, beneficiary_id, program_id, row):
+    """Insert enrollment data"""
+    try:
+        # Check if enrollment already exists
+        cursor.execute(
+            "SELECT id FROM program_enrollments WHERE beneficiary_id = %s AND program_id = %s",
+            (beneficiary_id, program_id)
+        )
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        if existing:
+            # Update existing enrollment
+            update_query = """
+            UPDATE program_enrollments SET
+                completion_date = %s,
+                status = %s,
+                attendance_rate = %s,
+                post_assessment_score = %s
+            WHERE id = %s
+            """
+            cursor.execute(update_query, (
+                row.get('completion_date') if row.get('completion_date') else None,
+                row.get('status', 'enrolled'),
+                float(row.get('attendance_rate', 0)),
+                float(row.get('post_assessment_score', 0)) if row.get('post_assessment_score') else None,
+                existing[0]
+            ))
+            return existing[0]
+        
+        # Insert new enrollment
+        enrollment_query = """
+        INSERT INTO program_enrollments (
+            beneficiary_id, program_id, enrollment_date, completion_date,
+            status, attendance_rate, pre_assessment_score, post_assessment_score
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(enrollment_query, (
+            beneficiary_id,
+            program_id,
+            row.get('enrollment_date', '2025-01-01'),
+            row.get('completion_date') if row.get('completion_date') else None,
+            row.get('status', 'enrolled'),
+            float(row.get('attendance_rate', 0)),
+            float(row.get('pre_assessment_score', 0)) if row.get('pre_assessment_score') else None,
+            float(row.get('post_assessment_score', 0)) if row.get('post_assessment_score') else None
+        ))
+        
+        return cursor.lastrowid
+        
+    except Exception as e:
+        logger.error(f"Error inserting enrollment: {e}")
+        return None
+
+def insert_employment_outcome(cursor, beneficiary_id, program_id, row):
+    """Insert employment outcome data"""
+    try:
+        # Check if outcome already exists
+        cursor.execute(
+            "SELECT id FROM employment_outcomes WHERE beneficiary_id = %s AND program_id = %s",
+            (beneficiary_id, program_id)
+        )
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        if existing:
+            # Update existing outcome
+            update_query = """
+            UPDATE employment_outcomes SET
+                outcome_type = %s,
+                monthly_income_after = %s,
+                employment_status = %s
+            WHERE id = %s
+            """
+            cursor.execute(update_query, (
+                row.get('employment_outcome', 'unemployed'),
+                float(row.get('monthly_income_after', 0)),
+                'full_time',  # Default
+                existing[0]
+            ))
+            return
+        
+        # Insert new outcome
+        outcome_query = """
+        INSERT INTO employment_outcomes (
+            beneficiary_id, program_id, outcome_type, monthly_income_after,
+            employment_status, follow_up_date, follow_up_period
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(outcome_query, (
+            beneficiary_id,
+            program_id,
+            row.get('employment_outcome', 'unemployed'),
+            float(row.get('monthly_income_after', 0)),
+            'full_time',  # Default
+            '2025-12-31',  # Default follow-up
+            '3_months'
+        ))
+        
+    except Exception as e:
+        logger.error(f"Error inserting employment outcome: {e}")
+
+def insert_success_metrics(cursor, beneficiary_id, program_id, row):
+    """Insert success metrics data"""
+    try:
+        # Check if metrics already exist
+        cursor.execute(
+            "SELECT id FROM success_metrics WHERE beneficiary_id = %s AND program_id = %s",
+            (beneficiary_id, program_id)
+        )
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        success_score = float(row.get('success_score', 0))
+        category = 'high_success' if success_score > 80 else ('moderate_success' if success_score > 60 else 'low_success')
+        
+        if existing:
+            # Update existing metrics
+            update_query = """
+            UPDATE success_metrics SET
+                success_score = %s,
+                completion_rate = %s,
+                employment_rate = %s,
+                success_category = %s
+            WHERE id = %s
+            """
+            cursor.execute(update_query, (
+                success_score,
+                float(row.get('completion_rate', 0)),
+                float(row.get('employment_rate', 0)),
+                category,
+                existing[0]
+            ))
+            return
+        
+        # Insert new metrics
+        metrics_query = """
+        INSERT INTO success_metrics (
+            beneficiary_id, program_id, completion_rate, employment_rate,
+            skill_improvement_score, success_score, success_category
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(metrics_query, (
+            beneficiary_id,
+            program_id,
+            float(row.get('completion_rate', 0)),
+            float(row.get('employment_rate', 0)),
+            float(row.get('skill_improvement', 0)),
+            success_score,
+            category
+        ))
+        
+    except Exception as e:
+        logger.error(f"Error inserting success metrics: {e}")
+
+
+def get_or_create_barangay(cursor, barangay_name, district):
+    """Get or create barangay"""
+    try:
+        cursor.execute("SELECT id FROM barangays WHERE name = %s", (barangay_name,))
+        existing = cursor.fetchone()
+        cursor.fetchall()  # Consume any remaining results
+        
+        if existing:
+            return existing[0]
+        
+        # Insert new barangay
+        cursor.execute(
+            "INSERT INTO barangays (name, district) VALUES (%s, %s)",
+            (barangay_name, int(district))
+        )
+        return cursor.lastrowid
+        
+    except Exception as e:
+        logger.error(f"Error with barangay: {e}")
+        return 1  # Default barangay ID
 
 if __name__ == '__main__':
     logger.info("Starting SAKSES ML Integration System...")

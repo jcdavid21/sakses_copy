@@ -282,6 +282,7 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
             font-weight: 600;
             font-size: 0.9rem;
         }
+
     </style>
     <title>SAKSES - Program Analytics Dashboard</title>
 </head>
@@ -310,6 +311,115 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
                         <button class="btn btn-gradient" onclick="refreshDashboard()">
                             <i class="fas fa-sync-alt me-2"></i>Refresh Data
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dataset Upload Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="chart-container">
+                        <h4 class="mb-3">
+                            <i class="fas fa-upload me-2 text-primary"></i>Upload Training Dataset
+                        </h4>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="datasetFile" class="form-label">Select CSV Dataset File</label>
+                                    <input type="file" class="form-control" id="datasetFile" accept=".csv" onchange="previewDataset()" />
+                                    <small class="text-muted">Upload CSV file with beneficiary training data</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-flex gap-2">
+                                    <button class="btn-gradient" onclick="uploadDataset()" id="uploadBtn" disabled>
+                                        <i class="fas fa-upload me-2"></i>Upload & Train
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="downloadSampleDataset()">
+                                        <i class="fas fa-download me-2"></i>Sample CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dataset Preview Section -->
+                        <div class="mt-4" id="datasetPreview" style="display: none;">
+                            <h5 class="mb-3">
+                                <i class="fas fa-eye me-2 text-success"></i>Dataset Preview
+                            </h5>
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <small class="text-muted">Total Records</small>
+                                            <div class="fw-bold" id="totalRecords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <small class="text-muted">Columns</small>
+                                            <div class="fw-bold" id="totalColumns">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <small class="text-muted">Valid Records</small>
+                                            <div class="fw-bold text-success" id="validRecords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center p-2">
+                                            <small class="text-muted">Issues Found</small>
+                                            <div class="fw-bold text-warning" id="issuesFound">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Data Quality Issues -->
+                            <div id="dataIssues" style="display: none;" class="alert alert-warning mb-3">
+                                <h6><i class="fas fa-exclamation-triangle me-2"></i>Data Quality Issues</h6>
+                                <ul id="issuesList" class="mb-0"></ul>
+                            </div>
+
+                            <!-- Preview Table -->
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-bordered table-hover table-sm">
+                                    <thead class="table-dark sticky-top">
+                                        <tr id="previewHeaders"></tr>
+                                    </thead>
+                                    <tbody id="previewData"></tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-3 d-flex justify-content-between align-items-center">
+                                <small class="text-muted">Showing first 10 rows of your dataset</small>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-danger me-2" onclick="clearPreview()">
+                                        <i class="fas fa-times me-1"></i>Clear
+                                    </button>
+                                    <button class="btn btn-sm btn-success" onclick="proceedWithUpload()" id="proceedBtn">
+                                        <i class="fas fa-check me-1"></i>Proceed with Upload
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div class="mt-3" id="uploadProgress" style="display: none;">
+                            <div class="progress mb-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                    id="uploadProgressBar" style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="uploadStatus">Uploading...</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -985,6 +1095,369 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
         var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
+
+        function uploadDataset() {
+            const fileInput = document.getElementById('datasetFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                Swal.fire({
+                    title: 'No File Selected',
+                    text: 'Please select a CSV file to upload',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                Swal.fire({
+                    title: 'Invalid File Type',
+                    text: 'Please select a CSV file',
+                    icon: 'error'
+                });
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('dataset', file);
+
+            // Show upload progress
+            document.getElementById('uploadProgress').style.display = 'block';
+            document.getElementById('uploadProgressBar').style.width = '10%';
+            document.getElementById('uploadStatus').textContent = 'Uploading dataset...';
+
+            fetch('http://localhost:8800/upload_dataset', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('uploadProgressBar').style.width = '50%';
+                        document.getElementById('uploadStatus').textContent = 'Dataset uploaded. Processing...';
+
+                        // Start training automatically
+                        setTimeout(() => {
+                            retrainModels();
+                            document.getElementById('uploadProgress').style.display = 'none';
+                        }, 1000);
+
+                        Swal.fire({
+                            title: 'Dataset Uploaded Successfully!',
+                            html: `
+                    <p>Records processed: <strong>${data.records_processed}</strong></p>
+                    <p>Starting model training...</p>
+                `,
+                            icon: 'success',
+                            timer: 3000
+                        });
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('uploadProgress').style.display = 'none';
+                    Swal.fire({
+                        title: 'Upload Failed',
+                        text: error.message,
+                        icon: 'error'
+                    });
+                });
+        }
+
+        function downloadSampleDataset() {
+            // Create sample CSV content
+            const csvContent = `beneficiary_id,first_name,last_name,date_of_birth,gender,civil_status,education_level,family_size,monthly_income_before,employment_status_before,is_pantawid_beneficiary,is_indigenous,has_disability,household_head,barangay_name,district,program_name,program_type,duration_months,enrollment_date,completion_date,status,attendance_rate,pre_assessment_score,post_assessment_score,employment_outcome,monthly_income_after,success_score,completion_rate,employment_rate,skill_improvement
+B200,Maria,Santos,1990-05-15,Female,Married,High School,4,8000,unemployed,1,0,0,1,Bagong Pag-asa,4,Bakery Skills Training,skills_training,3,2025-01-15,2025-04-15,completed,95.5,65,88,employed,15000,85.5,95,90,23
+B201,Juan,Dela Cruz,1985-08-22,Male,Single,College,2,12000,underemployed,0,0,0,0,San Antonio,3,Call Center Job Readiness,employment_facilitation,2,2025-02-01,2025-04-01,completed,88.0,70,92,employed,18000,90.2,88,95,22
+B202,Ana,Rodriguez,1992-12-10,Female,Widowed,Vocational,3,6000,unemployed,1,1,0,1,Payatas,2,Sari-Sari Store Start-up,microenterprise,6,2025-01-20,,active,82.5,55,75,self_employed,11000,78.3,82,85,20
+B203,Pedro,Garcia,1988-03-18,Male,Married,Elementary,5,5000,unemployed,1,0,1,1,Culiat,4,Food Cart Business,entrepreneurship,4,2025-03-01,,active,75.0,45,68,business_started,13000,72.1,75,80,23
+B204,Rosa,Mendoza,1995-11-25,Female,Single,Senior High,1,9000,employed,0,0,0,0,Holy Spirit,2,Dressmaking Skills,skills_training,5,2025-04-10,,enrolled,0,60,,unemployed,9000,65.0,0,0,0`;
+
+            // Create and download file
+            const blob = new Blob([csvContent], {
+                type: 'text/csv'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sakses_sample_dataset.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            Swal.fire({
+                title: 'Sample Dataset Downloaded',
+                text: 'Use this format for your training data',
+                icon: 'info',
+                timer: 2000
+            });
+        }
+
+        let csvData = null;
+        let csvHeaders = [];
+
+        function previewDataset() {
+            const fileInput = document.getElementById('datasetFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                clearPreview();
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                Swal.fire({
+                    title: 'Invalid File Type',
+                    text: 'Please select a CSV file',
+                    icon: 'error'
+                });
+                clearPreview();
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    parseCSV(e.target.result);
+                } catch (error) {
+                    Swal.fire({
+                        title: 'Error Reading File',
+                        text: 'Unable to parse CSV file: ' + error.message,
+                        icon: 'error'
+                    });
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                Swal.fire({
+                    title: 'Invalid CSV',
+                    text: 'CSV file must have at least a header and one data row',
+                    icon: 'error'
+                });
+                return;
+            }
+
+            // Parse headers
+            csvHeaders = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
+
+            // Parse data
+            csvData = [];
+            const issues = [];
+            let validRecords = 0;
+
+            for (let i = 1; i < lines.length && i < 50; i++) { // Preview first 50 rows max
+                const values = parseCSVRow(lines[i]);
+                if (values.length !== csvHeaders.length) {
+                    issues.push(`Row ${i}: Column count mismatch (expected ${csvHeaders.length}, got ${values.length})`);
+                    continue;
+                }
+
+                const row = {};
+                let hasRequiredFields = true;
+
+                for (let j = 0; j < csvHeaders.length; j++) {
+                    row[csvHeaders[j]] = values[j];
+                }
+
+                // Check for required fields
+                const requiredFields = ['beneficiary_id', 'first_name', 'last_name', 'program_name'];
+                for (const field of requiredFields) {
+                    if (!row[field] || row[field].trim() === '') {
+                        issues.push(`Row ${i}: Missing required field '${field}'`);
+                        hasRequiredFields = false;
+                    }
+                }
+
+                if (hasRequiredFields) {
+                    validRecords++;
+                }
+
+                csvData.push(row);
+            }
+
+            displayPreview(csvData.slice(0, 10), issues, validRecords, lines.length - 1);
+        }
+
+        function parseCSVRow(row) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < row.length; i++) {
+                const char = row[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim());
+
+            return values.map(val => val.replace(/"/g, ''));
+        }
+
+        function displayPreview(data, issues, validRecords, totalRecords) {
+            // Update statistics
+            document.getElementById('totalRecords').textContent = totalRecords;
+            document.getElementById('totalColumns').textContent = csvHeaders.length;
+            document.getElementById('validRecords').textContent = validRecords;
+            document.getElementById('issuesFound').textContent = issues.length;
+
+            // Show issues if any
+            if (issues.length > 0) {
+                const issuesDiv = document.getElementById('dataIssues');
+                const issuesList = document.getElementById('issuesList');
+                issuesList.innerHTML = issues.slice(0, 10).map(issue => `<li>${issue}</li>`).join('');
+                issuesDiv.style.display = 'block';
+            } else {
+                document.getElementById('dataIssues').style.display = 'none';
+            }
+
+            // Create table headers
+            const headersRow = document.getElementById('previewHeaders');
+            headersRow.innerHTML = csvHeaders.map(header => `<th>${header}</th>`).join('');
+
+            // Create table data
+            const dataBody = document.getElementById('previewData');
+            dataBody.innerHTML = data.map((row, index) => {
+                const cells = csvHeaders.map(header => {
+                    let value = row[header] || '';
+                    // Truncate long values
+                    if (value.length > 30) {
+                        value = value.substring(0, 30) + '...';
+                    }
+                    return `<td>${value}</td>`;
+                }).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+
+            // Show preview section
+            document.getElementById('datasetPreview').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        function clearPreview() {
+            document.getElementById('datasetPreview').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+            csvData = null;
+            csvHeaders = [];
+        }
+
+        function proceedWithUpload() {
+            if (csvData && csvData.length > 0) {
+                uploadDataset();
+            }
+        }
+
+        // Update the existing uploadDataset function
+        function uploadDataset() {
+            const fileInput = document.getElementById('datasetFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                Swal.fire({
+                    title: 'No File Selected',
+                    text: 'Please select a CSV file to upload',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            if (!csvData || csvData.length === 0) {
+                Swal.fire({
+                    title: 'No Preview Data',
+                    text: 'Please preview the dataset first',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            // Show confirmation with preview summary
+            const validRecords = document.getElementById('validRecords').textContent;
+            const issues = document.getElementById('issuesFound').textContent;
+
+            Swal.fire({
+                title: 'Confirm Dataset Upload',
+                html: `
+            <div class="text-start">
+                <p><strong>Dataset Summary:</strong></p>
+                <ul>
+                    <li>Total Records: ${document.getElementById('totalRecords').textContent}</li>
+                    <li>Valid Records: ${validRecords}</li>
+                    <li>Columns: ${document.getElementById('totalColumns').textContent}</li>
+                    <li>Issues Found: ${issues}</li>
+                </ul>
+                ${issues > 0 ? '<p class="text-warning"><small><i class="fas fa-exclamation-triangle"></i> Records with issues will be skipped</small></p>' : ''}
+            </div>
+        `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Upload & Process',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    performUpload(file);
+                }
+            });
+        }
+
+        function performUpload(file) {
+            const formData = new FormData();
+            formData.append('dataset', file);
+
+            // Show upload progress
+            document.getElementById('uploadProgress').style.display = 'block';
+            document.getElementById('uploadProgressBar').style.width = '10%';
+            document.getElementById('uploadStatus').textContent = 'Uploading dataset...';
+
+            fetch('http://localhost:8800/upload_dataset', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('uploadProgressBar').style.width = '50%';
+                        document.getElementById('uploadStatus').textContent = 'Dataset uploaded. Processing...';
+
+                        // Start training automatically
+                        setTimeout(() => {
+                            retrainModels();
+                            document.getElementById('uploadProgress').style.display = 'none';
+                            clearPreview();
+                        }, 1000);
+
+                        Swal.fire({
+                            title: 'Dataset Uploaded Successfully!',
+                            html: `
+                        <p>Records processed: <strong>${data.records_processed}</strong></p>
+                        <p>Starting model training...</p>
+                    `,
+                            icon: 'success',
+                            timer: 3000
+                        });
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('uploadProgress').style.display = 'none';
+                    Swal.fire({
+                        title: 'Upload Failed',
+                        text: error.message,
+                        icon: 'error'
+                    });
+                });
+        }
     </script>
 
 </body>
