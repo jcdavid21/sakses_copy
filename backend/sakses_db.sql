@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 17, 2025 at 03:44 AM
+-- Generation Time: Sep 18, 2025 at 03:29 AM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.0.28
 
@@ -560,6 +560,32 @@ INSERT INTO `system_logs` (`id`, `user_id`, `action`, `description`, `created_at
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `training_datasets`
+--
+
+CREATE TABLE `training_datasets` (
+  `id` int(11) NOT NULL,
+  `age` int(11) DEFAULT NULL,
+  `gender` varchar(10) DEFAULT NULL,
+  `education_level` varchar(50) DEFAULT NULL,
+  `civil_status` varchar(20) DEFAULT NULL,
+  `family_size` int(11) DEFAULT NULL,
+  `monthly_income_before` decimal(10,2) DEFAULT NULL,
+  `employment_status_before` varchar(50) DEFAULT NULL,
+  `program_type` varchar(50) DEFAULT NULL,
+  `duration_months` int(11) DEFAULT NULL,
+  `attendance_rate` decimal(5,2) DEFAULT NULL,
+  `pre_assessment_score` decimal(5,2) DEFAULT NULL,
+  `post_assessment_score` decimal(5,2) DEFAULT NULL,
+  `program_completed` tinyint(1) DEFAULT NULL,
+  `employment_success` tinyint(1) DEFAULT NULL,
+  `skill_development_success` tinyint(1) DEFAULT NULL,
+  `upload_date` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `training_modules`
 --
 
@@ -605,17 +631,6 @@ CREATE TABLE `training_progress` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `training_progress`
---
-
-INSERT INTO `training_progress` (`id`, `enrollment_id`, `module_id`, `start_date`, `completion_date`, `status`, `attendance_hours`, `assessment_score`, `remarks`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, '2025-01-10', '2025-01-30', 'completed', 20.00, 80.00, 'Good progress', '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
-(2, 1, 2, '2025-02-01', '2025-03-15', 'completed', 30.00, 85.00, 'Excellent performance', '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
-(3, 2, 3, '2025-02-10', NULL, 'in_progress', 8.00, NULL, 'Needs improvement', '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
-(4, 3, 4, '2025-03-10', NULL, 'in_progress', 10.00, NULL, 'Ongoing', '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
-(5, 5, 5, '2025-05-10', NULL, 'not_started', 0.00, NULL, 'Pending start', '2025-09-10 06:14:46', '2025-09-10 06:14:46');
 
 -- --------------------------------------------------------
 
@@ -724,6 +739,12 @@ ALTER TABLE `system_logs`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `training_datasets`
+--
+ALTER TABLE `training_datasets`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `training_modules`
 --
 ALTER TABLE `training_modules`
@@ -805,6 +826,12 @@ ALTER TABLE `system_logs`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
+-- AUTO_INCREMENT for table `training_datasets`
+--
+ALTER TABLE `training_datasets`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `training_modules`
 --
 ALTER TABLE `training_modules`
@@ -814,7 +841,7 @@ ALTER TABLE `training_modules`
 -- AUTO_INCREMENT for table `training_progress`
 --
 ALTER TABLE `training_progress`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `users`
