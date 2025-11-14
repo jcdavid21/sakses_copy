@@ -212,7 +212,7 @@
                     });
 
                     setTimeout(() => {
-                        window.location.href = 'login.php';
+                        window.location.href = './logout.php';
                     }, 1000);
                 }
             });

@@ -4,6 +4,12 @@
 include "../backend/config.php";
 session_start();
 
+if(!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+
 // Fetch system logs with user details
 $sql = "SELECT 
     sl.id,

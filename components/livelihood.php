@@ -7,6 +7,12 @@ session_start();
 // Python Flask API endpoint
 $python_api_url = 'http://localhost:8800';
 
+if(!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+
 // Function to call Python API
 function callPythonAPI($endpoint, $data = null)
 {

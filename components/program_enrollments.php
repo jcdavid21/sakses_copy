@@ -4,6 +4,12 @@
 include "../backend/config.php";
 session_start();
 
+if(!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit();
+}
+
+
 // Fetch program enrollments with beneficiary and program details
 $sql = "SELECT 
     pe.id,
