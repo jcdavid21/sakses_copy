@@ -44,12 +44,12 @@
                     <span class="nav-text">Program Enrollments</span>
                 </a>
             </li>
-            <!-- <li class="nav-item">
-                <a href="enrollments.php" class="nav-link-custom <?php echo basename($_SERVER['PHP_SELF']) == 'enrollments.php' ? 'active' : '' ?>">
+            <li class="nav-item">
+                <a href="./program_resources.php" class="nav-link-custom <?php echo basename($_SERVER['PHP_SELF']) == 'enrollments.php' ? 'active' : '' ?>">
                     <i class="fas fa-book nav-icon"></i>
                     <span class="nav-text">Program Resources</span>
                 </a>
-            </li> -->
+            </li>
             <!-- <li class="nav-item">
                 <a href="outcomes.php" class="nav-link-custom <?php echo basename($_SERVER['PHP_SELF']) == 'outcomes.php' ? 'active' : '' ?>">
                     <i class="fas fa-chart-line nav-icon"></i>

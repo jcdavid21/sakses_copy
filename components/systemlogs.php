@@ -355,7 +355,7 @@ $stats = $stats_result->fetch_assoc();
                                     <span class="fw-bold text-primary">#<?php echo $log['id']; ?></span>
                                 </td>
                                 <td>
-                                    <div class="user-info">
+                                    <div class="user-info" style="background-color: white !important; border: none !important;">
                                         <div class="user-avatar <?php echo $log['user_id'] ? '' : 'system'; ?>">
                                             <?php echo $log['user_id'] ? substr($log['username'], 0, 2) : 'SYS'; ?>
                                         </div>
@@ -544,7 +544,7 @@ $stats = $stats_result->fetch_assoc();
                         <span class="fw-bold text-primary">#${log.id}</span>
                     </td>
                     <td>
-                        <div class="user-info">
+                        <div class="user-info" style="background-color: white !important; border: none !important;">
                             <div class="user-avatar ${userClass}">${userInitials}</div>
                             <div>
                                 <div class="fw-semibold">${log.full_name}</div>
@@ -588,7 +588,7 @@ $stats = $stats_result->fetch_assoc();
                     
                     <div class="detail-label">User:</div>
                     <div class="detail-value">
-                        <div class="user-info">
+                        <div class="user-info" style="background-color: white !important; border: none !important;">
                             <div class="user-avatar ${log.user_id ? '' : 'system'}" style="width: 24px; height: 24px; font-size: 0.7rem;">
                                 ${log.user_id ? log.username.substring(0, 2).toUpperCase() : 'SYS'}
                             </div>

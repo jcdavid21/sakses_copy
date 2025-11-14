@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Sep 18, 2025 at 03:29 AM
+-- Generation Time: Nov 14, 2025 at 02:21 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.0.28
 
@@ -407,7 +407,7 @@ INSERT INTO `program_enrollments` (`id`, `beneficiary_id`, `program_id`, `enroll
 (2, 2, 2, '2025-02-05', '2025-07-31', 'active', 80.00, 50.00, NULL, 'Retail Management', NULL, NULL, '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
 (3, 3, 3, '2025-03-05', NULL, 'enrolled', 0.00, NULL, NULL, NULL, NULL, NULL, '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
 (4, 4, 4, '2025-04-05', NULL, 'active', 70.00, 45.00, NULL, 'Food Prep', NULL, NULL, '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
-(5, 5, 5, '2025-05-05', NULL, 'enrolled', 0.00, NULL, NULL, NULL, NULL, NULL, '2025-09-10 06:14:46', '2025-09-10 06:14:46'),
+(5, 5, 5, '2025-05-05', '2025-04-21', 'enrolled', 0.00, 0.00, NULL, 'None', 'Bread Baking Cert', '', '2025-09-10 06:14:46', '2025-11-03 12:57:38'),
 (6, 6, 5, '2025-09-11', NULL, 'enrolled', 0.00, 5.00, NULL, 'asd', '', '', '2025-09-11 16:27:43', '2025-09-11 16:51:35'),
 (187, 7, 1, '2025-08-01', '2025-10-31', 'completed', 92.50, 65.00, 88.00, 'Baking, Pastry Making', 'Bread Baking Certificate', NULL, '2025-09-11 17:31:06', '2025-09-11 17:31:06'),
 (188, 8, 2, '2025-08-05', '2025-11-30', 'active', 85.00, 55.00, NULL, 'Retail Management', NULL, NULL, '2025-09-11 17:31:06', '2025-09-11 17:31:06'),
@@ -482,7 +482,8 @@ INSERT INTO `program_resources` (`id`, `program_id`, `resource_type`, `resource_
 (2, 2, 'materials', 'Store Shelves', 10, 50000.00, 'Retail Depot', '2025-02-01', 'in_use', '2025-09-10 06:14:46'),
 (3, 3, 'venue', 'Training Center A', 1, 20000.00, 'City Hall', '2025-03-01', 'available', '2025-09-10 06:14:46'),
 (4, 4, 'instructor', 'Chef Ramon', 1, 30000.00, 'Freelance', '2025-04-01', 'in_use', '2025-09-10 06:14:46'),
-(5, 5, 'budget', 'Tailoring Kit', 30, 60000.00, 'Sewing World', '2025-05-01', 'available', '2025-09-10 06:14:46');
+(5, 5, 'budget', 'Tailoring Kit', 30, 60000.00, 'Sewing World', '2025-05-01', 'available', '2025-09-10 06:14:46'),
+(7, 1, 'equipment', 'asd', 1, 324.00, 'asd', '2025-11-03', 'available', '2025-11-03 13:43:10');
 
 -- --------------------------------------------------------
 
@@ -555,7 +556,11 @@ INSERT INTO `system_logs` (`id`, `user_id`, `action`, `description`, `created_at
 (33, 1, 'Update', 'Updated enrollment ID: 6 for Beneficiary ID: 0 in Program ID: ', '2025-09-11 16:51:35'),
 (34, 1, 'Update', 'Updated enrollment ID: 1 for Beneficiary ID: 0 in Program ID: ', '2025-09-11 16:51:43'),
 (35, 1, 'Update', 'Updated enrollment ID: 1 for Beneficiary ID: 0 in Program ID: ', '2025-09-11 16:54:24'),
-(36, 1, 'train_model', 'Models retrained - Success: False, Income: False', '2025-09-11 15:35:25');
+(36, 1, 'train_model', 'Models retrained - Success: False, Income: False', '2025-09-11 15:35:25'),
+(37, 1, 'Update', 'Updated enrollment ID: 5 for Beneficiary ID: 0 in Program ID: ', '2025-11-03 12:57:38'),
+(38, 1, 'Delete', 'Deleted resource ID: 6', '2025-11-03 13:31:45'),
+(39, 1, 'Update', 'Updated enrollment ID: 5 for Beneficiary ID: 0 in Program ID: ', '2025-11-03 13:45:00'),
+(61, 1, 'Login', 'User logged in: admin', '2025-11-14 13:19:43');
 
 -- --------------------------------------------------------
 
@@ -659,7 +664,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `first_name`, `last_name`, `role`, `department`, `contact_number`, `is_active`, `created_at`, `updated_at`, `last_login`) VALUES
-(1, 'admin', 'admin@sakses.dswd.gov.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Administrator', 'admin', 'ICT Department', NULL, 1, '2025-09-10 06:11:20', '2025-09-10 06:11:20', NULL),
+(1, 'admin', 'admin@sakses.dswd.gov.ph', '$2y$10$RjO0a7BuiN3ZnIm8iiBWxO6j/uJirUmFzQjRD2IrMMJWefZ.Kl6Wy', 'System', 'Administrator', 'admin', 'ICT Department', NULL, 1, '2025-09-10 06:11:20', '2025-11-14 13:18:29', NULL),
 (2, 'analyst1', 'analyst1@sakses.dswd.gov.ph', 'hashedpw1', 'Anna', 'Lopez', 'analyst', 'Planning', '09171234501', 1, '2025-09-10 06:14:46', '2025-09-10 06:14:46', NULL),
 (3, 'field1', 'field1@sakses.dswd.gov.ph', 'hashedpw2', 'Juan', 'Dela Cruz', 'field_worker', 'Field Ops', '09171234502', 1, '2025-09-10 06:14:46', '2025-09-10 06:14:46', NULL),
 (4, 'field2', 'field2@sakses.dswd.gov.ph', 'hashedpw3', 'Maria', 'Santos', 'field_worker', 'Field Ops', '09171234503', 1, '2025-09-10 06:14:46', '2025-09-10 06:14:46', NULL),
@@ -811,7 +816,7 @@ ALTER TABLE `program_enrollments`
 -- AUTO_INCREMENT for table `program_resources`
 --
 ALTER TABLE `program_resources`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `success_metrics`
@@ -823,7 +828,7 @@ ALTER TABLE `success_metrics`
 -- AUTO_INCREMENT for table `system_logs`
 --
 ALTER TABLE `system_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
 -- AUTO_INCREMENT for table `training_datasets`
