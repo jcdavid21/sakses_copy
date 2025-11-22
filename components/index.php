@@ -7,7 +7,7 @@ session_start();
 // Python Flask API endpoint
 $python_api_url = 'http://localhost:8800';
 
-if(!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
@@ -287,7 +287,6 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
             font-weight: 600;
             font-size: 0.9rem;
         }
-
     </style>
     <title>SAKSES - Program Analytics Dashboard</title>
 </head>
@@ -1023,6 +1022,15 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
         }
 
         function viewProgramDetails(programId) {
+            Swal.fire({
+                title: 'Loading...',
+                text: 'Fetching program analytics',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
             fetch(`http://localhost:8800/analytics/program/${programId}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1030,46 +1038,146 @@ $program_predictions = $program_predictions_response['program_predictions'] ?? [
                         throw new Error(data.error);
                     }
 
+                    const pred = data.predictions;
+                    const programType = (data.program_type || 'unknown').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const status = (data.status || 'active').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const statusColor = data.status === 'completed' ? 'success' : (data.status === 'active' ? 'primary' : 'secondary');
+
+                    // Completion Rate colors
+                    const completionColor = pred.completion_prediction.predicted_rate >= 70 ? 'success' : (pred.completion_prediction.predicted_rate >= 50 ? 'warning' : 'danger');
+                    // Employment Rate colors
+                    const employmentColor = pred.employment_prediction.predicted_rate >= 70 ? 'success' : (pred.employment_prediction.predicted_rate >= 50 ? 'warning' : 'danger');
+                    // Skill Development colors
+                    const skillColor = pred.skill_development_prediction.predicted_improvement >= 70 ? 'success' : (pred.skill_development_prediction.predicted_improvement >= 50 ? 'warning' : 'danger');
+
                     let content = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-graduation-cap text-primary me-2"></i>Program Overview</h6>
-                        <div class="prediction-metric">
-                            <span class="metric-label">Total Enrollments:</span>
-                            <span class="metric-value">${data.total_enrollments || 0}</span>
+                        <div class="text-start">
+                            <!-- Program Overview Section -->
+                            <div class="mb-4">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-info-circle text-primary me-2"></i>Program Overview
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Program Type</small>
+                                        <strong>${programType}</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Status</small>
+                                        <span class="badge bg-${statusColor}">${status}</span>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Duration</small>
+                                        <strong>${data.duration_months || 0} months</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Budget Allocated</small>
+                                        <strong>₱${data.budget_allocated ? Number(data.budget_allocated).toLocaleString() : '0'}</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Start Date</small>
+                                        <strong>${data.start_date || 'N/A'}</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">End Date</small>
+                                        <strong>${data.end_date || 'Ongoing'}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Enrollment Statistics Section -->
+                            <div class="mb-4">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-users text-success me-2"></i>Enrollment Statistics
+                                </h6>
+                                <div class="row">
+                                    <div class="col-4 text-center mb-2">
+                                        <div class="bg-light rounded p-2">
+                                            <div class="h4 mb-0 text-primary">${data.total_enrollments || 0}</div>
+                                            <small class="text-muted">Total Enrolled</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4 text-center mb-2">
+                                        <div class="bg-light rounded p-2">
+                                            <div class="h4 mb-0 text-success">${data.completed_count || 0}</div>
+                                            <small class="text-muted">Completed</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-4 text-center mb-2">
+                                        <div class="bg-light rounded p-2">
+                                            <div class="h4 mb-0 text-warning">${data.active_count || 0}</div>
+                                            <small class="text-muted">Active</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Target Beneficiaries</small>
+                                        <strong>${data.target_beneficiaries || 0}</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Average Attendance</small>
+                                        <strong>${(data.avg_attendance || 0).toFixed(1)}%</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Dropped Out</small>
+                                        <strong class="text-danger">${data.dropped_out_count || 0}</strong>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <small class="text-muted d-block">Avg Assessment Score</small>
+                                        <strong>${(data.avg_post_assessment || 0).toFixed(1)}%</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ML Predictions Section -->
+                            <div>
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-brain text-info me-2"></i>ML Predictions
+                                </h6>
+                                <table class="table table-bordered table-sm mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Completion Rate</strong></td>
+                                            <td>
+                                                <span class="badge bg-${completionColor}">${pred.completion_prediction.predicted_rate}%</span>
+                                                <small class="text-muted ms-1">${pred.completion_prediction.trend}</small>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Employment Rate</strong></td>
+                                            <td>
+                                                <span class="badge bg-${employmentColor}">${pred.employment_prediction.predicted_rate}%</span>
+                                                <small class="text-muted ms-1">${pred.employment_prediction.trend}</small>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Skill Development</strong></td>
+                                            <td>
+                                                <span class="badge bg-${skillColor}">${pred.skill_development_prediction.predicted_improvement}%</span>
+                                                <small class="text-muted ms-1">${pred.skill_development_prediction.trend}</small>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Overall Success</strong></td>
+                                            <td>
+                                                <span class="badge bg-${pred.overall_success.badge_color}">${pred.overall_success.predicted_rate}%</span>
+                                                <small class="text-muted ms-1">${pred.overall_success.category} Success</small>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="prediction-metric">
-                            <span class="metric-label">Completions:</span>
-                            <span class="metric-value">${data.completions || 0}</span>
-                        </div>
-                        <div class="prediction-metric">
-                            <span class="metric-label">Average Attendance:</span>
-                            <span class="metric-value">${(data.avg_attendance || 0).toFixed(1)}%</span>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-chart-line text-success me-2"></i>Success Metrics</h6>
-                        <div class="prediction-metric">
-                            <span class="metric-label">Success Score:</span>
-                            <span class="metric-value">${(data.avg_success_score || 0).toFixed(1)}%</span>
-                        </div>
-                        <div class="prediction-metric">
-                            <span class="metric-label">Completion Rate:</span>
-                            <span class="metric-value">${((data.completions || 0) / (data.total_enrollments || 1) * 100).toFixed(1)}%</span>
-                        </div>
-                    </div>
-                </div>
-            `;
+                    `;
 
                     Swal.fire({
-                        title: `${data.program_name} - Program Analytics`,
+                        title: `${data.program_name || 'Program Analytics'}`,
                         html: content,
-                        icon: 'info',
-                        width: 700,
+                        width: 600,
                         confirmButtonText: 'Close'
                     });
                 })
                 .catch(error => {
+                    console.error('Analytics error:', error);
                     Swal.fire({
                         title: 'Error!',
                         text: 'Failed to get program analytics: ' + error.message,

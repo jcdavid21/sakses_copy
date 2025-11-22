@@ -40,10 +40,7 @@ $sql = "SELECT
         WHEN pe.status = 'completed' THEN 100
         WHEN pe.status = 'dropped_out' THEN 0
         WHEN pe.status = 'transferred' THEN 0
-        ELSE GREATEST(0, LEAST(100, 
-            DATEDIFF(CURDATE(), pe.enrollment_date) * 100 / 
-            NULLIF(DATEDIFF(COALESCE(lp.end_date, DATE_ADD(lp.start_date, INTERVAL lp.duration_months MONTH)), lp.start_date), 0)
-        ))
+        ELSE COALESCE(pe.attendance_rate, 0)
     END as enrollment_progress
 FROM program_enrollments pe
 LEFT JOIN beneficiaries b ON pe.beneficiary_id = b.id
@@ -1119,13 +1116,13 @@ $beneficiaries = $beneficiaries_result->fetch_all(MYSQLI_ASSOC);
                     </td>
                     <td>
                         <div class="d-flex gap-1">
-                            <button class="action-btn btn-view" onclick="viewEnrollment(<?php echo $enrollment['id']; ?>)" title="View Details">
+                            <button class="action-btn btn-view" onclick="viewEnrollment(${enrollment.id})" title="View Details">
                                 <i class="fas fa-eye"></i>
                             </button>
-                            <button class="action-btn btn-edit" onclick="editEnrollment(<?php echo $enrollment['id']; ?>)" title="Edit Enrollment">
+                            <button class="action-btn btn-edit" onclick="editEnrollment(${enrollment.id})" title="Edit Enrollment">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="action-btn btn-delete btn-danger" onclick="deleteEnrollment(<?php echo $enrollment['id']; ?>)" title="Delete Enrollment">
+                            <button class="action-btn btn-delete btn-danger" onclick="deleteEnrollment(${enrollment.id})" title="Delete Enrollment">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>

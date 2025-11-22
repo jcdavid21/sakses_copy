@@ -630,7 +630,7 @@ class MLModelManager:
                 COUNT(pe.id) as total_enrollments,
                 COUNT(CASE WHEN pe.status = 'completed' THEN pe.id END) as completed_count,
                 AVG(CASE WHEN pe.status = 'completed' THEN 1.0 ELSE 0.0 END) as completion_rate,
-                AVG(CASE WHEN eo.employment_status IN ('employed', 'self_employed') THEN 1.0 ELSE 0.0 END) as employment_rate,
+                AVG(CASE WHEN eo.outcome_type IN ('employed', 'self_employed') THEN 1.0 ELSE 0.0 END) as employment_rate,
                 AVG(pe.post_assessment_score - pe.pre_assessment_score) as avg_skill_improvement,
                 AVG(sm.success_score) as avg_success_score
             FROM livelihood_programs lp
@@ -649,10 +649,15 @@ class MLModelManager:
             predictions = []
             
             for _, program in df.iterrows():
-                # Calculate trend-based predictions
-                completion_trend = min(95.0, max(10.0, (program['completion_rate'] or 0) * 100 + np.random.uniform(-5, 10)))
-                employment_trend = min(90.0, max(15.0, (program['employment_rate'] or 0) * 100 + np.random.uniform(-3, 8)))
-                skill_improvement = min(85.0, max(20.0, 50 + (program['avg_skill_improvement'] or 0) * 2))
+                # Handle NaN values
+                completion_rate_val = float(program['completion_rate']) if pd.notna(program['completion_rate']) else 0
+                employment_rate_val = float(program['employment_rate']) if pd.notna(program['employment_rate']) else 0
+                avg_skill_improvement_val = float(program['avg_skill_improvement']) if pd.notna(program['avg_skill_improvement']) else 0
+                
+                # Calculate predictions WITHOUT randomness for consistency
+                completion_trend = min(95.0, max(10.0, completion_rate_val * 100))
+                employment_trend = min(90.0, max(15.0, employment_rate_val * 100))
+                skill_improvement = min(85.0, max(20.0, 50 + avg_skill_improvement_val * 2))
                 
                 # Overall success prediction (weighted average)
                 overall_success = (completion_trend * 0.4 + employment_trend * 0.4 + skill_improvement * 0.2)
@@ -663,7 +668,7 @@ class MLModelManager:
                     trend_direction = "Increasing"
                     badge_color = "success"
                 elif overall_success >= 50:
-                    success_category = "Medium" 
+                    success_category = "Medium"
                     trend_direction = "Stable"
                     badge_color = "warning"
                 else:
@@ -675,7 +680,7 @@ class MLModelManager:
                     'program_id': int(program['program_id']),
                     'program_name': program['program_name'],
                     'program_type': program['program_type'],
-                    'duration_months': program['duration_months'],
+                    'duration_months': int(program['duration_months']) if pd.notna(program['duration_months']) else 0,
                     'total_enrollments': int(program['total_enrollments'] or 0),
                     'predictions': {
                         'completion_prediction': {
@@ -869,27 +874,160 @@ def get_model_status():
 
 @app.route('/analytics/program/<int:program_id>', methods=['GET'])
 def get_program_analytics(program_id):
-    """Get detailed analytics for a specific program"""
+    """Get detailed analytics for a specific program - matches dashboard table data exactly"""
     try:
-        query = """
+        # First get program details
+        program_query = """
         SELECT 
-            lp.program_name,
-            COUNT(pe.id) as total_enrollments,
-            COUNT(CASE WHEN pe.status = 'completed' THEN pe.id END) as completions,
-            AVG(pe.attendance_rate) as avg_attendance,
-            AVG(sm.success_score) as avg_success_score
-        FROM livelihood_programs lp
-        LEFT JOIN program_enrollments pe ON lp.id = pe.program_id
-        LEFT JOIN success_metrics sm ON lp.id = sm.program_id
-        WHERE lp.id = %s
-        GROUP BY lp.id, lp.program_name
+            id as program_id,
+            program_name,
+            program_type,
+            program_code,
+            description,
+            duration_months,
+            target_beneficiaries,
+            budget_allocated,
+            start_date,
+            end_date,
+            status
+        FROM livelihood_programs
+        WHERE id = %s
         """
         
-        df = db.execute_query(query, (program_id,))
-        if df.empty:
+        program_df = db.execute_query(program_query, (program_id,))
+        if program_df is None or program_df.empty:
             return jsonify({'error': 'Program not found'}), 404
         
-        return jsonify(df.iloc[0].to_dict())
+        program = program_df.iloc[0]
+        
+        # Get enrollment statistics
+        stats_query = """
+        SELECT 
+            COUNT(pe.id) as total_enrollments,
+            COUNT(CASE WHEN pe.status = 'completed' THEN pe.id END) as completed_count,
+            COUNT(CASE WHEN pe.status IN ('enrolled', 'active') THEN pe.id END) as active_count,
+            COUNT(CASE WHEN pe.status = 'dropped_out' THEN pe.id END) as dropped_out_count,
+            AVG(pe.attendance_rate) as avg_attendance,
+            AVG(pe.post_assessment_score) as avg_post_assessment,
+            AVG(CASE WHEN pe.status = 'completed' THEN 1.0 ELSE 0.0 END) as completion_rate
+        FROM program_enrollments pe
+        WHERE pe.program_id = %s
+        """
+        
+        stats_df = db.execute_query(stats_query, (program_id,))
+        stats = stats_df.iloc[0] if stats_df is not None and not stats_df.empty else {}
+        
+        # Get employment rate
+        employment_query = """
+        SELECT 
+            AVG(CASE WHEN eo.outcome_type IN ('employed', 'self_employed', 'business_started') THEN 1.0 ELSE 0.0 END) as employment_rate
+        FROM program_enrollments pe
+        LEFT JOIN employment_outcomes eo ON pe.beneficiary_id = eo.beneficiary_id AND pe.program_id = eo.program_id
+        WHERE pe.program_id = %s
+        """
+        
+        employment_df = db.execute_query(employment_query, (program_id,))
+        employment_rate_val = 0
+        if employment_df is not None and not employment_df.empty:
+            employment_rate_val = float(employment_df.iloc[0]['employment_rate']) if pd.notna(employment_df.iloc[0]['employment_rate']) else 0
+        
+        # Get skill improvement
+        skill_query = """
+        SELECT 
+            AVG(pe.post_assessment_score - pe.pre_assessment_score) as avg_skill_improvement
+        FROM program_enrollments pe
+        WHERE pe.program_id = %s
+        AND pe.post_assessment_score IS NOT NULL
+        AND pe.pre_assessment_score IS NOT NULL
+        """
+        
+        skill_df = db.execute_query(skill_query, (program_id,))
+        avg_skill_improvement_val = 0
+        if skill_df is not None and not skill_df.empty:
+            avg_skill_improvement_val = float(skill_df.iloc[0]['avg_skill_improvement']) if pd.notna(skill_df.iloc[0]['avg_skill_improvement']) else 0
+        
+        # Handle NaN values for stats
+        total_enrollments = int(stats['total_enrollments']) if pd.notna(stats.get('total_enrollments')) else 0
+        completed_count = int(stats['completed_count']) if pd.notna(stats.get('completed_count')) else 0
+        active_count = int(stats['active_count']) if pd.notna(stats.get('active_count')) else 0
+        dropped_out_count = int(stats['dropped_out_count']) if pd.notna(stats.get('dropped_out_count')) else 0
+        avg_attendance = float(stats['avg_attendance']) if pd.notna(stats.get('avg_attendance')) else 0
+        avg_post_assessment = float(stats['avg_post_assessment']) if pd.notna(stats.get('avg_post_assessment')) else 0
+        completion_rate_val = float(stats['completion_rate']) if pd.notna(stats.get('completion_rate')) else 0
+        
+        # Calculate predictions - SAME logic as predict_program_success (NO randomness)
+        completion_trend = min(95.0, max(10.0, completion_rate_val * 100))
+        employment_trend = min(90.0, max(15.0, employment_rate_val * 100))
+        skill_improvement = min(85.0, max(20.0, 50 + avg_skill_improvement_val * 2))
+        
+        # Overall success prediction (weighted average)
+        overall_success = (completion_trend * 0.4 + employment_trend * 0.4 + skill_improvement * 0.2)
+        
+        # Determine success category
+        if overall_success >= 70:
+            success_category = "High"
+            trend_direction = "Increasing"
+            badge_color = "success"
+        elif overall_success >= 50:
+            success_category = "Medium"
+            trend_direction = "Stable"
+            badge_color = "warning"
+        else:
+            success_category = "Low"
+            trend_direction = "Needs Improvement"
+            badge_color = "danger"
+        
+        # Format dates
+        start_date_formatted = None
+        end_date_formatted = None
+        
+        if pd.notna(program['start_date']):
+            start_date_formatted = pd.to_datetime(program['start_date']).strftime('%b %d, %Y')
+        
+        if pd.notna(program['end_date']):
+            end_date_formatted = pd.to_datetime(program['end_date']).strftime('%b %d, %Y')
+        
+        # Format budget
+        budget = float(program['budget_allocated']) if pd.notna(program['budget_allocated']) else 0
+        
+        return jsonify({
+            'program_id': int(program['program_id']),
+            'program_name': str(program['program_name']) if pd.notna(program['program_name']) else 'Unknown',
+            'program_type': str(program['program_type']) if pd.notna(program['program_type']) else 'unknown',
+            'program_code': str(program['program_code']) if pd.notna(program['program_code']) else '',
+            'description': str(program['description']) if pd.notna(program['description']) else '',
+            'duration_months': int(program['duration_months']) if pd.notna(program['duration_months']) else 0,
+            'target_beneficiaries': int(program['target_beneficiaries']) if pd.notna(program['target_beneficiaries']) else 0,
+            'budget_allocated': budget,
+            'start_date': start_date_formatted,
+            'end_date': end_date_formatted,
+            'status': str(program['status']) if pd.notna(program['status']) else 'active',
+            'total_enrollments': total_enrollments,
+            'completed_count': completed_count,
+            'active_count': active_count,
+            'dropped_out_count': dropped_out_count,
+            'avg_attendance': avg_attendance,
+            'avg_post_assessment': avg_post_assessment,
+            'predictions': {
+                'completion_prediction': {
+                    'predicted_rate': round(completion_trend, 1),
+                    'trend': trend_direction
+                },
+                'employment_prediction': {
+                    'predicted_rate': round(employment_trend, 1),
+                    'trend': trend_direction
+                },
+                'skill_development_prediction': {
+                    'predicted_improvement': round(skill_improvement, 1),
+                    'trend': trend_direction
+                },
+                'overall_success': {
+                    'predicted_rate': round(overall_success, 1),
+                    'category': success_category,
+                    'badge_color': badge_color
+                }
+            }
+        })
         
     except Exception as e:
         logger.error(f"Program analytics error: {e}")
